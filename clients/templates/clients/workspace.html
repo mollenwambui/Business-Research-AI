@@ -1,449 +1,1004 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
-    <!-- Tell the browser which character encoding to use -->
     <meta charset="UTF-8">
-
-    <!-- Make the interface responsive on different screen sizes -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <!-- Display the client's business name in the browser tab -->
     <title>{{ client.business_name }} | Business Research AI</title>
 
     <style>
-
-        /* Remove default browser spacing and make sizing predictable */
+        /* Set consistent sizing and the main colour palette. */
         * {
-            margin: 0;
-            padding: 0;
             box-sizing: border-box;
         }
 
-        /* Style the entire application */
+        :root {
+            --sidebar-bg: #f7f7f8;
+            --text-main: #252525;
+            --text-muted: #777777;
+            --border: #e6e6e6;
+            --accent: #635bff;
+            --accent-hover: #5148e5;
+        }
+
+        /* Fill the browser window. */
         body {
+            margin: 0;
+            min-height: 100vh;
             font-family: Arial, Helvetica, sans-serif;
-            background: #f5f7fb;
-            color: #172033;
+            color: var(--text-main);
+            background: white;
+        }
+
+        /* Lock the layout to the window height so only the messages area scrolls. */
+        .app-layout {
+            display: flex;
             height: 100vh;
             overflow: hidden;
         }
 
-        /* Create the top navigation bar */
-        .navbar {
-            height: 76px;
-            background: white;
-            border-bottom: 1px solid #e8ebf2;
+        /* Style the sidebar. It stays in place and scrolls on its own if needed. */
+        .sidebar {
+            width: 310px;
+            min-width: 310px;
+            height: 100vh;
+            min-height: 0;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            padding: 22px 16px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border);
+        }
+
+        /* Display the brand icon and application name. */
+        .brand {
             display: flex;
             align-items: center;
-            padding: 0 35px;
-        }
-
-        /* Style the left side of the navigation bar */
-        .nav-left {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-
-        /* Style the back link */
-        .back-link {
-            color: #70798d;
-            text-decoration: none;
-            font-size: 14px;
-            font-weight: 600;
-        }
-
-        /* Change the back link when the mouse moves over it */
-        .back-link:hover {
-            color: #635bff;
-        }
-
-        /* Create the application logo */
-        .brand-logo {
-            width: 40px;
-            height: 40px;
-            border-radius: 12px;
-            background: #635bff;
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            gap: 10px;
+            padding: 4px 8px 24px;
             font-size: 16px;
             font-weight: 800;
         }
 
-        /* Style the application name */
-        .brand-name {
-            font-size: 17px;
-            font-weight: 750;
-        }
-
-        /* Create the main workspace */
-        .workspace {
-            height: calc(100vh - 76px);
-            display: flex;
-        }
-
-        /* Create the client information sidebar */
-        .sidebar {
-            width: 310px;
-            background: white;
-            border-right: 1px solid #e8ebf2;
-            padding: 32px 25px;
-            overflow-y: auto;
-        }
-
-        /* Create the client icon */
-        .client-avatar {
-            width: 64px;
-            height: 64px;
-            border-radius: 18px;
-            background: #f0efff;
-            color: #635bff;
+        .brand-icon {
+            width: 34px;
+            height: 34px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 24px;
-            font-weight: 800;
-            margin-bottom: 22px;
-        }
-
-        /* Style the client business name */
-        .sidebar h1 {
-            font-size: 23px;
-            line-height: 1.3;
-            letter-spacing: -0.5px;
-            margin-bottom: 8px;
-        }
-
-        /* Style the client industry */
-        .industry {
-            color: #635bff;
+            border-radius: 11px;
+            background: var(--accent);
+            color: white;
             font-size: 13px;
+            font-weight: 800;
+        }
+
+        /* Style the New chat button. */
+        .new-chat-button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 9px;
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid #dddddd;
+            border-radius: 12px;
+            background: white;
+            color: var(--text-main);
+            text-decoration: none;
+            font-size: 14px;
             font-weight: 700;
-            margin-bottom: 30px;
         }
 
-        /* Create spacing between client information sections */
-        .info-section {
-            margin-bottom: 28px;
+        .new-chat-button:hover {
+            background: #f0efff;
+            border-color: #c8c4ff;
         }
 
-        /* Style information labels */
-        .info-label {
-            display: block;
-            color: #9299aa;
+        /* Separate client details from conversation history. */
+        .client-section {
+            margin-top: 30px;
+            padding: 0 8px 22px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .section-label {
+            margin: 0 0 13px;
+            color: var(--text-muted);
             font-size: 11px;
             font-weight: 800;
-            text-transform: uppercase;
             letter-spacing: 1px;
-            margin-bottom: 9px;
+            text-transform: uppercase;
         }
 
-        /* Style client description */
-        .description {
-            color: #697286;
-            font-size: 14px;
+        .business-name {
+            margin: 0 0 9px;
+            font-size: 16px;
+            line-height: 1.5;
+            overflow-wrap: anywhere;
+        }
+
+        .industry-label {
+            display: inline-block;
+            max-width: 100%;
+            padding: 5px 9px;
+            border-radius: 7px;
+            background: #eeedff;
+            color: #5148c9;
+            font-size: 11px;
+            font-weight: 700;
+            overflow-wrap: anywhere;
+        }
+
+        /* Limit the visible business description to three lines. */
+        .description-preview {
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            margin: 12px 0 0;
+            color: #686868;
+            font-size: 12px;
+            line-height: 1.7;
+            overflow-wrap: anywhere;
+        }
+
+        /* Style the expandable description. */
+        .description-details {
+            margin-top: 8px;
+            font-size: 12px;
+        }
+
+        .description-details summary {
+            display: inline-block;
+            color: var(--accent);
+            cursor: pointer;
+            font-weight: 700;
+            list-style: none;
+        }
+
+        .description-details summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .full-description {
+            margin: 10px 0 0;
+            color: #555555;
+            font-size: 12px;
+            line-height: 1.8;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+        }
+
+        /* Let the history occupy the available sidebar space. */
+        .history-section {
+            flex: 1;
+            min-height: 0;
+            margin-top: 24px;
+        }
+
+        .conversation-list {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            max-height: 48vh;
+            overflow-y: auto;
+            padding: 0 2px 12px;
+        }
+
+        .conversation-link {
+            display: block;
+            padding: 11px 12px;
+            border: 1px solid transparent;
+            border-radius: 10px;
+            color: #454545;
+            text-decoration: none;
+            font-size: 13px;
+            line-height: 1.5;
+            overflow-wrap: anywhere;
+        }
+
+        .conversation-link:hover {
+            background: #ececef;
+        }
+
+        /* Highlight the currently selected chat. */
+        .conversation-link.active {
+            border-color: #e3e0ff;
+            background: #eae8ff;
+            color: #3931b5;
+            font-weight: 700;
+        }
+
+        .empty-history {
+            padding: 10px 12px;
+            color: var(--text-muted);
+            font-size: 12px;
             line-height: 1.7;
         }
 
-        /* Create the main chat area */
-        .chat-area {
+        .sidebar-footer {
+            padding: 18px 8px 0;
+            border-top: 1px solid var(--border);
+        }
+
+        .back-link {
+            color: #666666;
+            text-decoration: none;
+            font-size: 12px;
+        }
+
+        .back-link:hover {
+            color: var(--accent);
+        }
+
+        /* Let the main panel fill the remaining space at full window height. */
+        .main-panel {
             flex: 1;
+            min-width: 0;
             display: flex;
             flex-direction: column;
-            min-width: 0;
-        }
-
-        /* Create the chat header */
-        .chat-header {
+            height: 100vh;
+            min-height: 0;
+            overflow: hidden;
             background: white;
-            border-bottom: 1px solid #e8ebf2;
-            padding: 22px 30px;
         }
 
-        /* Style the chat heading */
-        .chat-header h2 {
-            font-size: 18px;
-            margin-bottom: 5px;
+        /* Style the conversation header. */
+        .topbar {
+            min-height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+            padding: 16px 30px;
+            border-bottom: 1px solid #eeeeee;
         }
 
-        /* Style the chat description */
-        .chat-header p {
-            color: #8991a3;
-            font-size: 13px;
+        .topbar-title {
+            margin: 0;
+            font-size: 15px;
+            font-weight: 700;
+            overflow-wrap: anywhere;
         }
 
-        /* Create the message area */
+        .topbar-subtitle {
+            margin: 5px 0 0;
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .status-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 7px 10px;
+            border-radius: 20px;
+            background: #f0faf3;
+            color: #267444;
+            font-size: 11px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #35a65a;
+        }
+
+        /* The messages area is the only part that scrolls. */
         .messages {
             flex: 1;
+            width: 100%;
+            min-height: 0;
             overflow-y: auto;
-            padding: 35px;
+            padding: 35px 30px;
         }
 
-        /* Create the initial AI message */
         .welcome-message {
-            max-width: 760px;
-            margin: 40px auto;
+            width: 100%;
+            max-width: 700px;
+            margin: 100px auto 40px;
             text-align: center;
         }
 
-        /* Create the welcome icon */
         .welcome-icon {
-            width: 65px;
-            height: 65px;
-            border-radius: 20px;
-            background: #635bff;
-            color: white;
+            width: 58px;
+            height: 58px;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 0 auto 20px;
-            font-size: 23px;
-            font-weight: 800;
-            box-shadow: 0 12px 30px rgba(99, 91, 255, 0.2);
-        }
-
-        /* Style the welcome heading */
-        .welcome-message h3 {
-            font-size: 24px;
-            margin-bottom: 10px;
-        }
-
-        /* Style the welcome description */
-        .welcome-message p {
-            color: #7c8497;
-            font-size: 15px;
-            line-height: 1.7;
-        }
-
-        /* Create the bottom message input area */
-        .input-area {
-            padding: 20px 30px 25px;
-            background: #f5f7fb;
-        }
-
-        /* Create the chat input container */
-        .input-box {
-            max-width: 900px;
-            margin: 0 auto;
-            background: white;
-            border: 1px solid #dfe3ec;
+            margin: 0 auto 22px;
             border-radius: 18px;
-            padding: 10px;
+            background: #eeedff;
+            color: var(--accent);
+            font-size: 18px;
+            font-weight: 800;
+        }
+
+        .welcome-message h2 {
+            margin: 0 0 12px;
+            font-size: 25px;
+            line-height: 1.4;
+            overflow-wrap: anywhere;
+        }
+
+        .welcome-message p {
+            max-width: 520px;
+            margin: 0 auto;
+            color: #777777;
+            font-size: 14px;
+            line-height: 1.8;
+        }
+
+        /* Style each saved message. */
+        .chat-message {
+            width: 100%;
+            max-width: 850px;
+            margin: 0 auto 26px;
+            padding: 18px 20px;
+            border: 1px solid #e8e8ed;
+            border-radius: 15px;
+            background: white;
+            /* Leaves a little space above a message when it is scrolled to. */
+            scroll-margin-top: 20px;
+        }
+
+        .chat-message.user-message {
+            background: #f8f7ff;
+            border-color: #e8e5ff;
+        }
+
+        .message-sender {
+            margin-bottom: 10px;
+            color: var(--accent);
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .ai-message .message-sender {
+            color: #28784b;
+        }
+
+        .message-content {
+            color: #303030;
+            font-size: 14px;
+            line-height: 1.85;
+            overflow-wrap: anywhere;
+        }
+
+        /* Temporary "thinking" message shown while waiting for the AI. */
+        .pending-message {
+            display: none;
+        }
+
+        .pending-message.active {
+            display: block;
+        }
+
+        .typing-dots {
+            display: inline-block;
+            margin-right: 8px;
+        }
+
+        .typing-dots span {
+            display: inline-block;
+            width: 7px;
+            height: 7px;
+            margin-right: 4px;
+            border-radius: 50%;
+            background: #28784b;
+            animation: dot-bounce 1.2s infinite ease-in-out;
+        }
+
+        .typing-dots span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-dots span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes dot-bounce {
+            0%, 80%, 100% {
+                opacity: 0.25;
+                transform: scale(0.8);
+            }
+            40% {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        /* Display errors returned by Django. */
+        .system-messages {
+            width: 100%;
+            max-width: 850px;
+            margin: 0 auto 20px;
+        }
+
+        .system-message {
+            margin: 0 0 10px;
+            padding: 13px 15px;
+            border: 1px solid #f3d0d0;
+            border-radius: 10px;
+            background: #fff2f2;
+            color: #a12b2b;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        /* Keep the input below the conversation. */
+        .input-area {
+            padding: 16px 30px 12px;
+            background: white;
+        }
+
+        /* Loading bar shown above the input while waiting for the AI. */
+        .progress-bar {
+            display: none;
+            width: 100%;
+            max-width: 850px;
+            height: 4px;
+            margin: 0 auto 10px;
+            overflow: hidden;
+            border-radius: 4px;
+            background: #eeedff;
+        }
+
+        .progress-bar.active {
+            display: block;
+        }
+
+        .progress-bar-fill {
+            width: 40%;
+            height: 100%;
+            border-radius: 4px;
+            background: var(--accent);
+            animation: progress-slide 1.2s ease-in-out infinite;
+        }
+
+        @keyframes progress-slide {
+            0% {
+                transform: translateX(-100%);
+            }
+            100% {
+                transform: translateX(250%);
+            }
+        }
+
+        .input-box {
+            width: 100%;
+            max-width: 850px;
             display: flex;
             align-items: flex-end;
-            gap: 10px;
-            box-shadow: 0 10px 30px rgba(31, 41, 55, 0.06);
+            gap: 12px;
+            margin: 0 auto;
+            padding: 12px;
+            border: 1px solid #dedee5;
+            border-radius: 17px;
+            background: white;
+            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.04);
         }
 
-        /* Style the message input */
         .message-input {
             flex: 1;
+            min-width: 0;
+            min-height: 44px;
+            max-height: 180px;
+            padding: 12px 8px;
             border: none;
             outline: none;
-            resize: none;
-            min-height: 45px;
-            max-height: 150px;
-            padding: 13px 12px;
+            resize: vertical;
+            background: transparent;
+            color: var(--text-main);
             font-family: inherit;
             font-size: 14px;
-            color: #172033;
+            line-height: 1.6;
         }
 
-        /* Style the placeholder text */
         .message-input::placeholder {
-            color: #a2a8b6;
+            color: #999999;
         }
 
-        /* Style the send button */
         .send-button {
+            min-width: 76px;
+            padding: 12px 17px;
             border: none;
-            background: #635bff;
+            border-radius: 11px;
+            background: var(--accent);
             color: white;
-            border-radius: 13px;
-            padding: 13px 21px;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 700;
             cursor: pointer;
-            transition: transform 0.2s ease, background 0.2s ease;
         }
 
-        /* Add interaction when the mouse moves over the send button */
         .send-button:hover {
-            background: #5149e8;
-            transform: translateY(-1px);
+            background: var(--accent-hover);
         }
 
-        /* Make the workspace responsive on smaller screens */
-        @media (max-width: 800px) {
+        .send-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
 
-            .sidebar {
-                display: none;
+        .input-note {
+            max-width: 850px;
+            margin: 10px auto 0;
+            color: #999999;
+            font-size: 11px;
+            line-height: 1.6;
+            text-align: center;
+        }
+
+        /* Stack the sidebar above the chat on smaller screens. */
+        @media (max-width: 850px) {
+            .app-layout {
+                flex-direction: column;
+                height: auto;
+                overflow: visible;
             }
 
-            .navbar {
-                padding: 0 20px;
+            .sidebar {
+                width: 100%;
+                min-width: 0;
+                height: auto;
+                overflow-y: visible;
+                padding: 16px;
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+            }
+
+            .brand {
+                padding-bottom: 16px;
+            }
+
+            .client-section {
+                margin-top: 20px;
+            }
+
+            .conversation-list {
+                max-height: 190px;
+            }
+
+            .sidebar-footer {
+                margin-top: 10px;
+            }
+
+            /* Fixed height so the messages area still scrolls on its own. */
+            .main-panel {
+                height: 85vh;
             }
 
             .messages {
-                padding: 25px 18px;
+                padding: 25px 16px;
+            }
+
+            .topbar {
+                padding: 15px 18px;
             }
 
             .input-area {
+                padding: 12px 16px;
+            }
+
+            .welcome-message {
+                margin-top: 55px;
+            }
+
+            .welcome-message h2 {
+                font-size: 21px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .status-label {
+                font-size: 10px;
+                padding: 6px 8px;
+            }
+
+            .topbar {
+                gap: 8px;
+            }
+
+            .topbar-title {
+                font-size: 13px;
+            }
+
+            .chat-message {
                 padding: 15px;
             }
 
+            .send-button {
+                min-width: 60px;
+                padding: 12px 10px;
+            }
         }
-
     </style>
-
 </head>
 
 <body>
 
-    <!-- Create the application navigation bar -->
-    <nav class="navbar">
+    <div class="app-layout">
 
-        <!-- Create the left side of the navigation bar -->
-        <div class="nav-left">
-
-            <!-- Link back to the client dashboard -->
-            <a href="{% url 'dashboard' %}" class="back-link">
-                ← Clients
-            </a>
-
-            <!-- Display the application logo -->
-            <div class="brand-logo">
-                BR
-            </div>
-
-            <!-- Display the application name -->
-            <span class="brand-name">
-                Business Research AI
-            </span>
-
-        </div>
-
-    </nav>
-
-
-    <!-- Create the main client workspace -->
-    <main class="workspace">
-
-
-        <!-- Create the client information sidebar -->
+        <!-- LEFT SIDEBAR -->
         <aside class="sidebar">
 
-            <!-- Display the first letter of the business name -->
-            <div class="client-avatar">
-                {{ client.business_name|first|upper }}
+            <div class="brand">
+                <div class="brand-icon">BR</div>
+                <span>Business Research AI</span>
             </div>
 
-            <!-- Display the client's business name -->
-            <h1>
-                {{ client.business_name }}
-            </h1>
+            <!-- Start a separate chat for the current client. -->
+            <a
+                href="{% url 'new_conversation' client.id %}"
+                class="new-chat-button"
+            >
+                <span aria-hidden="true">＋</span>
+                <span>New chat</span>
+            </a>
 
-            <!-- Display the client's industry -->
-            <p class="industry">
-                {{ client.industry }}
-            </p>
+            <!-- Current client information. -->
+            <section class="client-section">
 
+                <p class="section-label">Current client</p>
 
-            <!-- Display additional client information -->
-            <div class="info-section">
+                <h2 class="business-name">
+                    {{ client.business_name }}
+                </h2>
 
-                <!-- Display the information label -->
-                <span class="info-label">
-                    About this client
-                </span>
+                {% if client.industry %}
+                    <span class="industry-label">
+                        {{ client.industry }}
+                    </span>
+                {% endif %}
 
-                <!-- Display the client's description -->
-                <p class="description">
-                    {{ client.description }}
-                </p>
+                {% if client.description %}
 
-            </div>
+                    <p class="description-preview">
+                        {{ client.description }}
+                    </p>
+
+                    <!-- Expand the description without leaving the page. -->
+                    <details class="description-details">
+
+                        <summary>
+                            <span class="read-more-label">Read more</span>
+                            <span class="read-less-label">Show less</span>
+                        </summary>
+
+                        <p class="full-description">
+                            {{ client.description }}
+                        </p>
+
+                    </details>
+
+                {% else %}
+
+                    <p class="description-preview">
+                        No business description has been added yet.
+                    </p>
+
+                {% endif %}
+
+            </section>
+
+            <!-- Conversation history for this client only. -->
+            <section class="history-section">
+
+                <p class="section-label">Your chats</p>
+
+                <nav class="conversation-list">
+
+                    {% for item in conversations %}
+
+                        <a
+                            href="{% url 'conversation_workspace' client.id item.id %}"
+                            class="conversation-link {% if item.id == conversation.id %}active{% endif %}"
+                            {% if item.id == conversation.id %}aria-current="page"{% endif %}
+                        >
+                            {{ item.title }}
+                        </a>
+
+                    {% empty %}
+
+                        <p class="empty-history">
+                            Your conversations will appear here.
+                        </p>
+
+                    {% endfor %}
+
+                </nav>
+
+            </section>
+
+            <footer class="sidebar-footer">
+                <a href="{% url 'dashboard' %}" class="back-link">
+                    ← Back to all clients
+                </a>
+            </footer>
 
         </aside>
 
 
-        <!-- Create the main AI chat area -->
-        <section class="chat-area">
+        <!-- MAIN CHAT PANEL -->
+        <main class="main-panel">
 
+            <header class="topbar">
 
-            <!-- Create the chat header -->
-            <header class="chat-header">
+                <div>
+                    <h1 class="topbar-title">
+                        {{ conversation.title }}
+                    </h1>
 
-                <!-- Display the research assistant heading -->
-                <h2>
-                    Research Assistant
-                </h2>
+                    <p class="topbar-subtitle">
+                        Research workspace for {{ client.business_name }}
+                    </p>
+                </div>
 
-                <!-- Display the current client -->
-                <p>
-                    Your AI research workspace for {{ client.business_name }}
-                </p>
+                <div class="status-label">
+                    <span class="status-dot"></span>
+                    AI assistant
+                </div>
 
             </header>
 
 
-            <!-- Create the message area -->
-            <div class="messages">
+            <!-- Messages from the selected conversation. -->
+            <section class="messages">
 
-                <!-- Display the initial welcome message -->
-                <div class="welcome-message">
+                {% if messages %}
+                    <div class="system-messages">
+                        {% for message in messages %}
+                            <p class="system-message">
+                                {{ message }}
+                            </p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
 
-                    <!-- Display the AI icon -->
-                    <div class="welcome-icon">
-                        AI
+                {% if not conversation_history %}
+
+                    <div class="welcome-message">
+
+                        <div class="welcome-icon">AI</div>
+
+                        <h2>
+                            Let's research {{ client.business_name }}
+                        </h2>
+
+                        <p>
+                            Ask questions about this business, explore
+                            competitors, understand the market, analyse
+                            customers or investigate business opportunities.
+                        </p>
+
                     </div>
 
-                    <!-- Welcome the researcher -->
-                    <h3>
-                        Let's research {{ client.business_name }}
-                    </h3>
+                {% else %}
 
-                    <!-- Explain what the researcher can ask -->
-                    <p>
-                        Ask questions, explore the market, analyse competitors,
-                        investigate opportunities or prepare business research
-                        for this client.
-                    </p>
+                    {% for message in conversation_history %}
 
+                        {% if message.sender == "user" %}
+
+                            <article class="chat-message user-message">
+
+                                <div class="message-sender">
+                                    You
+                                </div>
+
+                                <div class="message-content">
+                                    {{ message.content|linebreaksbr }}
+                                </div>
+
+                            </article>
+
+                        {% else %}
+
+                            <article class="chat-message ai-message">
+
+                                <div class="message-sender">
+                                    Research Assistant
+                                </div>
+
+                                <div class="message-content">
+                                    {{ message.content|linebreaksbr }}
+                                </div>
+
+                            </article>
+
+                        {% endif %}
+
+                    {% endfor %}
+
+                {% endif %}
+
+                <!-- Shown only while waiting for the AI response. -->
+                <article
+                    class="chat-message ai-message pending-message"
+                    id="pendingMessage"
+                >
+
+                    <div class="message-sender">
+                        Research Assistant
+                    </div>
+
+                    <div class="message-content">
+                        <span class="typing-dots">
+                            <span></span><span></span><span></span>
+                        </span>
+                        Researching your question...
+                    </div>
+
+                </article>
+
+            </section>
+
+
+            <!-- Form for sending a new question. -->
+            <footer class="input-area">
+
+                <!-- Loading bar, visible only after Send is clicked. -->
+                <div class="progress-bar" id="progressBar" aria-hidden="true">
+                    <div class="progress-bar-fill"></div>
                 </div>
 
-            </div>
+                <form
+                    method="post"
+                    action="{% url 'conversation_workspace' client.id conversation.id %}"
+                    class="input-box"
+                    id="chatForm"
+                >
 
+                    {% csrf_token %}
 
-            <!-- Create the message input area -->
-            <div class="input-area">
-
-                <!-- Create the chat input box -->
-                <div class="input-box">
-
-                    <!-- Create the message input -->
                     <textarea
+                        name="message"
+                        id="messageInput"
                         class="message-input"
-                        placeholder="Ask something about this client..."
+                        placeholder="Ask anything about this business..."
+                        rows="2"
+                        aria-label="Your research question"
+                        required
                     ></textarea>
 
-                    <!-- Create the send button -->
-                    <button class="send-button">
+                    <button type="submit" class="send-button" id="sendButton">
                         Send
                     </button>
 
-                </div>
+                </form>
 
-            </div>
+                <p class="input-note">
+                    AI responses can be inaccurate. Verify important
+                    business information before making decisions.
+                </p>
 
-        </section>
+            </footer>
 
-    </main>
+        </main>
+
+    </div>
+
+
+    <!-- Toggle between Read more and Show less. -->
+    <script>
+        document.querySelectorAll(".description-details").forEach(
+            function (details) {
+
+                const readMore = details.querySelector(
+                    ".read-more-label"
+                );
+
+                const readLess = details.querySelector(
+                    ".read-less-label"
+                );
+
+                function updateLabels() {
+                    readMore.style.display = details.open
+                        ? "none"
+                        : "inline";
+
+                    readLess.style.display = details.open
+                        ? "inline"
+                        : "none";
+                }
+
+                details.addEventListener("toggle", updateLabels);
+
+                // Set the correct initial label.
+                updateLabels();
+            }
+        );
+    </script>
+
+
+    <!-- After the page loads, scroll the messages area to the latest question. -->
+    <script>
+        window.addEventListener("load", function () {
+
+            const messagesArea = document.querySelector(".messages");
+
+            // Find every question the user has asked in this conversation.
+            const userMessages = document.querySelectorAll(
+                ".chat-message.user-message"
+            );
+
+            // Nothing to scroll to in a new, empty chat.
+            if (userMessages.length === 0) {
+                return;
+            }
+
+            // The last one is the newest question.
+            const latestQuestion = userMessages[userMessages.length - 1];
+
+            // Scroll only the messages container, never the whole page,
+            // so the sidebar stays in view.
+            const offset =
+                latestQuestion.getBoundingClientRect().top -
+                messagesArea.getBoundingClientRect().top +
+                messagesArea.scrollTop -
+                20;
+
+            messagesArea.scrollTo({
+                top: offset,
+                behavior: "smooth"
+            });
+        });
+    </script>
+
+
+    <!-- Show the loading state after Send is clicked. -->
+    <script>
+        (function () {
+            const form = document.getElementById("chatForm");
+            const button = document.getElementById("sendButton");
+            const input = document.getElementById("messageInput");
+            const bar = document.getElementById("progressBar");
+            const pending = document.getElementById("pendingMessage");
+            const messagesArea = document.querySelector(".messages");
+
+            function resetLoading() {
+                button.disabled = false;
+                button.textContent = "Send";
+                input.readOnly = false;
+                bar.classList.remove("active");
+                pending.classList.remove("active");
+            }
+
+            form.addEventListener("submit", function () {
+
+                // Ignore messages that contain only spaces.
+                if (!input.value.trim()) {
+                    return;
+                }
+
+                button.disabled = true;
+                button.textContent = "Sending...";
+
+                // readOnly (not disabled) so the text is still submitted.
+                input.readOnly = true;
+
+                bar.classList.add("active");
+                pending.classList.add("active");
+
+                // Scroll the messages area down to the thinking message.
+                messagesArea.scrollTo({
+                    top: messagesArea.scrollHeight,
+                    behavior: "smooth"
+                });
+            });
+
+            // Clear the loading state if the user returns with the Back button.
+            window.addEventListener("pageshow", function (event) {
+                if (event.persisted) {
+                    resetLoading();
+                }
+            });
+        })();
+    </script>
 
 </body>
-
 </html>
