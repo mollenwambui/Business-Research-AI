@@ -11,11 +11,7 @@ def dashboard(request):
     clients = Client.objects.all()
 
     # Display the dashboard and its client cards.
-    return render(
-        request,
-        "clients/dashboard.html",
-        {"clients": clients}
-    )
+    return render(request, "clients/dashboard.html", {"clients": clients})
 
 
 # Entry point when a client card is opened: redirects to that client's latest
@@ -25,22 +21,15 @@ def client_workspace(request, client_id):
     client = get_object_or_404(Client, id=client_id)
 
     # Find the most recently updated conversation for this client.
-    conversation = client.conversations.order_by(
-        "-updated_at", "-id"
-    ).first()
+    conversation = client.conversations.order_by("-updated_at", "-id").first()
 
     # Create a first conversation if the client has no chat history.
     if conversation is None:
-        conversation = Conversation.objects.create(
-            client=client,
-            title="New chat"
-        )
+        conversation = Conversation.objects.create(client=client, title="New chat")
 
     # Redirect to the selected conversation.
     return redirect(
-        "conversation_workspace",
-        client_id=client.id,
-        conversation_id=conversation.id
+        "conversation_workspace", client_id=client.id, conversation_id=conversation.id
     )
 
 
@@ -51,16 +40,11 @@ def new_conversation(request, client_id):
     client = get_object_or_404(Client, id=client_id)
 
     # Create a new conversation without deleting existing chats.
-    conversation = Conversation.objects.create(
-        client=client,
-        title="New chat"
-    )
+    conversation = Conversation.objects.create(client=client, title="New chat")
 
     # Open the newly created conversation.
     return redirect(
-        "conversation_workspace",
-        client_id=client.id,
-        conversation_id=conversation.id
+        "conversation_workspace", client_id=client.id, conversation_id=conversation.id
     )
 
 
@@ -72,11 +56,7 @@ def conversation_workspace(request, client_id, conversation_id):
     client = get_object_or_404(Client, id=client_id)
 
     # Retrieve a conversation that belongs to this client.
-    conversation = get_object_or_404(
-        Conversation,
-        id=conversation_id,
-        client=client
-    )
+    conversation = get_object_or_404(Conversation, id=conversation_id, client=client)
 
     # Process the submitted question when the form is posted.
     if request.method == "POST":
@@ -86,15 +66,12 @@ def conversation_workspace(request, client_id, conversation_id):
 
         # Reject empty messages.
         if not question:
-            messages.error(
-                request,
-                "Please enter a research question."
-            )
+            messages.error(request, "Please enter a research question.")
 
             return redirect(
                 "conversation_workspace",
                 client_id=client.id,
-                conversation_id=conversation.id
+                conversation_id=conversation.id,
             )
 
         # Check whether this is the first message in the conversation.
@@ -102,75 +79,51 @@ def conversation_workspace(request, client_id, conversation_id):
 
         # Save the user's question before calling Gemini.
         Message.objects.create(
-            conversation=conversation,
-            sender="user",
-            content=question
+            conversation=conversation, sender="user", content=question
         )
 
         # Use the first question as the conversation title.
+        # checks whether the question is longer than 50 characters.
+        # if it is keeps the first 47 characters and adds .... That makes exactly 50 characters, which keeps the sidebar tidy.
         if is_first_message:
             conversation.title = (
-                question[:47] + "..."
-                if len(question) > 50
-                else question
+                question[:47] + "..." if len(question) > 50 else question
             )
 
-        # Update the conversation's last modified timestamp.
+            # Update the conversation's last modified timestamp.
         conversation.save()
 
-        try:
-            # Prepare the client's business information for Gemini.
-            client_context = (
-                f"Business name: {client.business_name}\n"
-                f"Industry: {client.industry}\n"
-                f"Description: {client.description}"
-            )
+        # Prepare the client's business information for Gemini.
+        client_context = (
+            f"Business name: {client.business_name}\n"
+            f"Industry: {client.industry}\n"
+            f"Description: {client.description}"
+        )
 
-            # Retrieve messages in chronological order.
-            conversation_history = list(
-                conversation.messages.order_by(
-                    "created_at", "id"
-                )
-            )
+        # Retrieve messages in chronological order.
+        conversation_history = list(conversation.messages.order_by("created_at", "id"))
 
-            # Generate an answer using the client's details and history.
-            answer = ask_gemini(
-                client_context,
-                conversation_history
-            )
+        # Generate an answer using the client's details and history.
+        answer = ask_gemini(client_context, conversation_history)
 
-            # Save the AI answer in the same conversation.
-            Message.objects.create(
-                conversation=conversation,
-                sender="ai",
-                content=answer
-            )
+        # Save the AI answer in the same conversation.
+        Message.objects.create(conversation=conversation, sender="ai", content=answer)
 
-            # Update the conversation's timestamp.
-            conversation.save()
-
-        except Exception:
-            # Show a helpful error without revealing technical secrets.
-            messages.error(
-                request,
-                "We could not generate a response. Check the API key, "
-                "model availability and quota. Your question has been saved."
-            )
+        # Update the conversation's timestamp.
+        conversation.save()
 
         # Redirect after POST to avoid accidental resubmission on refresh.
         return redirect(
             "conversation_workspace",
             client_id=client.id,
-            conversation_id=conversation.id
+            conversation_id=conversation.id,
         )
 
     # Retrieve saved messages for the selected conversation.
     conversation_history = conversation.messages.all()
 
     # Retrieve this client's conversations for the sidebar.
-    conversations = client.conversations.order_by(
-        "-updated_at", "-id"
-    )
+    conversations = client.conversations.order_by("-updated_at", "-id")
 
     # Render the workspace with all required context.
     return render(
@@ -181,5 +134,5 @@ def conversation_workspace(request, client_id, conversation_id):
             "conversation": conversation,
             "conversation_history": conversation_history,
             "conversations": conversations,
-        }
+        },
     )

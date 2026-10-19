@@ -17,52 +17,59 @@ gemini_client = (
 
 def ask_gemini(client_context, conversation_history):
     """
-    Send business context and previous messages to Gemini.
-    Return the generated response as text.
+    Send business context and conversation history to Gemini.
+    Allow Gemini to use research and analysis tools.
+    Return the generated response with available source links.
     """
 
     # Stop if the API key is missing.
     if gemini_client is None:
         raise ValueError("The Gemini API key is missing.")
 
-    # Tell Gemini its role and explain how to handle research questions.
-      # Tell Gemini its role and explain how to handle research questions.
+    # Define the AI assistant's role and behaviour.
     system_instruction = (
         "You are a Business Research AI Assistant. "
         "Help the operator research businesses, markets, competitors, "
         "customers, industry trends and business opportunities. "
+
         "Use the supplied client information as context. "
+
+        "Use Google Search for current information and fact checking. "
+        "Use URL Context to analyse webpages supplied by the operator. "
+        "Use code execution for calculations, projections and data analysis. "
+        "Use Google Maps when researching real businesses and locations. "
+
+        "Use tools when they are relevant to the question. "
         "Distinguish verified facts from estimates and uncertainty. "
         "Never invent sources, statistics or research findings. "
-        "Explain when current information requires external verification. "
+        "If the available evidence is incomplete, explain the limitation. "
+        "Cite relevant sources when available. "
         "Provide practical, clear and well-organized answers.\n\n"
-                "FORMATTING RULES:\n"
-        "- Write in plain text only. Never use special characters for formatting.\n"
-        "- Do not use #, *, **, _, `, ~, | or --- anywhere.\n"
-        "- Do not use tables.\n"
-        "- Write each section title on its own line, in plain words.\n"
-        "- For lists, start each item on a new line with a hyphen and a space.\n"
-        "- For steps, number them like 1. 2. 3.\n"
-        "- Keep paragraphs short and separate them with a blank line.\n"
-        "- For simple questions, answer briefly without section titles.\n\n"
-        "- For simple questions, answer briefly without headings.\n"
-        "- End with a short next-step suggestion when relevant.\n\n"
+
+        "FORMATTING RULES:\n"
+        "Use plain text with clear section headings.\n"
+        "Do not use Markdown tables.\n"
+        "Use numbered lists for procedures and simple lists for items.\n"
+        "Keep paragraphs short and readable.\n"
+        "For simple questions, answer briefly without headings.\n"
+        "End with a practical next step when relevant.\n\n"
+
         f"CLIENT INFORMATION:\n{client_context}"
     )
 
     # Prepare the conversation in the format Gemini expects.
     contents = []
 
-    # Process each saved message in chronological order.
+    # Process saved messages in chronological order.
     for message in conversation_history:
 
-        # Convert the sender into a Gemini role.
+        # Map Django message senders to Gemini roles.
         if message.sender == "user":
             role = "user"
         else:
             role = "model"
 
-        # Add the message content to the conversation.
+        # Add each saved message to the conversation history.
         contents.append(
             types.Content(
                 role=role,
@@ -74,15 +81,104 @@ def ask_gemini(client_context, conversation_history):
             )
         )
 
-    # Ask Gemini to generate an answer.
+    # Enable the four built-in Gemini tools.
+    tools = [
+        # Search the web for current information.
+        types.Tool(
+            google_search=types.GoogleSearch()
+        ),
+
+        # Read and analyse webpages supplied by the operator.
+        types.Tool(
+            url_context=types.UrlContext()
+        ),
+
+        # Execute code for calculations and data analysis.
+        types.Tool(
+            code_execution=types.ToolCodeExecution()
+        ),
+
+        # Research businesses and geographical locations.
+        types.Tool(
+            google_maps=types.GoogleMaps()
+        ),
+    ]
+
+    # Send the conversation to Gemini with all four tools enabled.
+    # Errors will propagate instead of silently retrying without tools.
     response = gemini_client.models.generate_content(
         model="gemini-3.5-flash-lite",
         contents=contents,
-        # Pass the system instruction (the AI's role and rules) to Gemini as part of the request settings
         config=types.GenerateContentConfig(
-            system_instruction=system_instruction
-        )
+            system_instruction=system_instruction,
+            tools=tools,
+        ),
     )
 
+    # Get the generated answer.
+    answer = response.text or ""
+
+    # Prepare collections for source links and duplicate detection.
+    source_lines = []
+    seen_urls = set()
+
+    try:
+        # Get the first response candidate from Gemini.
+        candidate = response.candidates[0]
+
+        # Grounding metadata contains source information when available.
+        metadata = candidate.grounding_metadata
+
+        if metadata and metadata.grounding_chunks:
+
+            # Process each source returned in the grounding metadata.
+            for chunk in metadata.grounding_chunks:
+
+                # Get the web source, or the Maps source if no web source exists.
+                source = (
+                    getattr(chunk, "web", None)
+                    or getattr(chunk, "maps", None)
+                )
+
+                # Skip chunks that contain neither source type.
+                if source is None:
+                    continue
+
+                # URI means Uniform Resource Identifier.
+                # It identifies a resource, such as a webpage.
+                # A URL is a type of URI.
+                # getattr returns None if the attribute does not exist.
+                uri = getattr(source, "uri", None)
+
+                # Get the source title if Gemini provides one.
+                title = getattr(source, "title", None)
+
+                # Skip sources that do not have a usable link.
+                if not uri:
+                    continue
+
+                # Avoid adding the same source link more than once.
+                if uri in seen_urls:
+                    continue
+
+                # Remember this URI to detect duplicates.
+                seen_urls.add(uri)
+
+                # Store the source title and link as plain text.
+                # If no title exists, use the URI as the title.
+                source_lines.append(
+                    f"- {title or uri}: {uri}"
+                )
+
+    except (AttributeError, IndexError, TypeError):
+        # Some responses may not contain grounding metadata.
+        # Keep the AI answer even if source extraction is unavailable.
+        pass
+
+    # Append the collected source links below the AI's answer.
+    # Put the heading on a new paragraph and each link on its own line.
+    if source_lines:
+        answer += "\n\nSources\n" + "\n".join(source_lines)
+
     # Return the answer to the Django view.
-    return response.text
+    return answer
